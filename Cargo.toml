@@ -10,3 +10,7 @@ description = "This crate mainly deals with issuing and maintaining stability of
 opt-level = 3
 lto = true
 debug = true
+
+[dependencies]
+derive-stable-id = "0.1.0"
+stable-id-traits = "0.1.1"

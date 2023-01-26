@@ -1,5 +1,5 @@
 mod find_start_of_trailing_dead_slots;
-mod tests;
+mod tomb_vec_tests;
 
 use std::fmt::Debug;
 
@@ -10,19 +10,19 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use IntoIterator;
+use stable_id_traits::{CastUsize, Maximum};
 
 use crate::tomb_vec::find_start_of_trailing_dead_slots::find_start_of_trailing_dead_slots;
-use crate::{CastUsize, Maximum, Slot, Successor, Tec};
+use crate::{Slot, Tec};
 
 impl<DataT, IndexT> Default for Tec<DataT, IndexT>
 where
-    IndexT: Default,
+    IndexT: Maximum,
 {
     fn default() -> Self {
         Self {
             vec: Default::default(),
-            next_free: Default::default(),
+            next_free: Maximum::max_value(),
             count: 0,
         }
     }
@@ -30,7 +30,7 @@ where
 
 impl<DataT, IndexT> Tec<DataT, IndexT>
 where
-    IndexT: Default + CastUsize + Successor + Ord + Copy + Maximum,
+    IndexT: CastUsize + Ord + Copy + Maximum,
 {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -67,11 +67,11 @@ where
     pub fn alloc(&mut self, data: DataT) -> IndexT {
         let len = self.len();
 
-        assert!(len < IndexT::max_value().to(), "exceed storage limit");
+        assert!(len < IndexT::max_value().cast_to(), "exceed storage limit");
 
         let original_free_index = self.next_free;
 
-        let next_slot = self.vec.get_mut(original_free_index.to());
+        let next_slot = self.vec.get_mut(original_free_index.cast_to());
 
         let result_index = if let Some(slot) = next_slot {
             match slot {
@@ -85,8 +85,8 @@ where
         } else {
             let result_index = self.capacity();
             self.vec.push(Slot::Alive(data));
-            self.next_free = IndexT::max_value();
-            IndexT::from(result_index)
+            self.next_free = Maximum::max_value();
+            IndexT::cast_from(result_index)
         };
 
         self.count += 1;
@@ -118,7 +118,7 @@ where
             // - and another one for removing/skipping trailing dead slots
             let mut cursor = self.next_free;
 
-            if cursor.to() == capacity {
+            if cursor.cast_to() == capacity {
                 return;
             }
 
@@ -127,8 +127,8 @@ where
             // tail of linked-list is while an index points to `len` (just one outside the `vec`)
             loop {
                 // check the next item in the link
-                if let Slot::Dead { next_free } = self.vec[cursor.to()] {
-                    if next_free.to() >= capacity {
+                if let Slot::Dead { next_free } = self.vec[cursor.cast_to()] {
+                    if next_free.cast_to() >= capacity {
                         break;
                     }
 
@@ -137,7 +137,7 @@ where
                     if next_free < last_alive_length {
                         if let Some(prev_keep) = retained_slot_cursor {
                             // remove trailing dead slots in between by updating the link between 2 dead slots
-                            if let Slot::Dead { next_free } = &mut self.vec[prev_keep.to()] {
+                            if let Slot::Dead { next_free } = &mut self.vec[prev_keep.cast_to()] {
                                 *next_free = cursor;
                             } else {
                                 unreachable!("reaching an Alive slot when traversing the free list")
@@ -166,11 +166,9 @@ where
             // updating the tail to the max
             if self.capacity() == 0 {
                 self.clear(); // this updates metadata after popping the vec
-            } else {
-                if let Some(prev_keep) = retained_slot_cursor {
-                    if let Slot::Dead { next_free } = &mut self.vec[prev_keep.to()] {
-                        *next_free = IndexT::max_value();
-                    }
+            } else if let Some(prev_keep) = retained_slot_cursor {
+                if let Slot::Dead { next_free } = &mut self.vec[prev_keep.cast_to()] {
+                    *next_free = Maximum::max_value();
                 }
             }
         }
@@ -181,7 +179,7 @@ where
     /** Panic if index is invalid */
     pub fn remove(&mut self, index: IndexT) -> DataT {
         assert!(
-            index < IndexT::max_value(),
+            index < Maximum::max_value(),
             "trying to remove an out of bound item"
         );
 
@@ -195,7 +193,7 @@ where
         // we're doing panic! over Option, so just do the bookkeeping here since we don't need to recover anything
         self.count -= 1;
 
-        let removal_candidate = &mut self.vec[index.to()];
+        let removal_candidate = &mut self.vec[index.cast_to()];
 
         let data = match removal_candidate {
             Slot::Alive(_) => {
@@ -225,47 +223,65 @@ where
     }
 
     pub fn get(&self, index: IndexT) -> Option<&DataT> {
-        assert!(index < IndexT::max_value(), "index is out of bound");
-        self.vec.get(index.to()).and_then(|slot| match slot {
+        assert!(index < Maximum::max_value(), "index is out of bound");
+        self.vec.get(index.cast_to()).and_then(|slot| match slot {
             Slot::Alive(data) => Some(data),
             Slot::Dead { .. } => None,
         })
     }
 
     pub fn get_mut(&mut self, index: IndexT) -> Option<&mut DataT> {
-        assert!(index < IndexT::max_value(), "index is out of bound");
-        self.vec.get_mut(index.to()).and_then(|slot| match slot {
+        assert!(index < Maximum::max_value(), "index is out of bound");
+        self.vec
+            .get_mut(index.cast_to())
+            .and_then(|slot| match slot {
+                Slot::Alive(data) => Some(data),
+                Slot::Dead { .. } => None,
+            })
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &DataT> + DoubleEndedIterator {
+        self.vec.iter().filter_map(|data| match data {
             Slot::Alive(data) => Some(data),
             Slot::Dead { .. } => None,
         })
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (IndexT, &DataT)> + DoubleEndedIterator {
+    pub fn iter_with_id(&self) -> impl Iterator<Item = (IndexT, &DataT)> + DoubleEndedIterator {
         self.vec
             .iter()
             .enumerate()
             .filter_map(|(id, data)| match data {
-                Slot::Alive(data) => Some((CastUsize::from(id), data)),
+                Slot::Alive(data) => Some((IndexT::cast_from(id), data)),
                 Slot::Dead { .. } => None,
             })
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (IndexT, &mut DataT)> + DoubleEndedIterator {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut DataT> + DoubleEndedIterator {
+        self.vec.iter_mut().filter_map(|data| match data {
+            Slot::Alive(data) => Some(data),
+            Slot::Dead { .. } => None,
+        })
+    }
+
+    pub fn iter_mut_with_id(
+        &mut self,
+    ) -> impl Iterator<Item = (IndexT, &mut DataT)> + DoubleEndedIterator {
         self.vec
             .iter_mut()
             .enumerate()
             .filter_map(|(id, data)| match data {
-                Slot::Alive(data) => Some((CastUsize::from(id), data)),
+                Slot::Alive(data) => Some((CastUsize::cast_from(id), data)),
                 Slot::Dead { .. } => None,
             })
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = (IndexT, DataT)> + DoubleEndedIterator {
+    pub fn into_iter_with_id(self) -> impl Iterator<Item = (IndexT, DataT)> + DoubleEndedIterator {
         self.vec
             .into_iter()
             .enumerate()
             .filter_map(|(id, data)| match data {
-                Slot::Alive(data) => Some((CastUsize::from(id), data)),
+                Slot::Alive(data) => Some((CastUsize::cast_from(id), data)),
                 Slot::Dead { .. } => None,
             })
     }
@@ -292,7 +308,7 @@ where
     }
 
     fn get_free_list(&self) -> Vec<IndexT> {
-        let max = IndexT::max_value();
+        let max = Maximum::max_value();
         let capacity = self.capacity();
         let len = self.len();
         assert!(capacity >= len);
@@ -305,14 +321,14 @@ where
                 break;
             }
 
-            if let Slot::Dead { next_free } = &self.vec[cur.to()] {
+            if let Slot::Dead { next_free } = &self.vec[cur.cast_to()] {
                 acc.push(cur);
                 cur = *next_free;
             } else {
                 unreachable!("found a living slot in free list")
             }
         }
-        return acc;
+        acc
     }
 
     /**
@@ -325,13 +341,13 @@ where
     where
         F: FnMut(IndexT, IndexT),
     {
-        let next_usize = self.next_free.to();
+        let next_usize = self.next_free.cast_to();
         let capacity = self.capacity();
         if next_usize >= capacity {
             return;
         } else {
             // this implies there is at least 1 living item
-            debug_assert!(self.len() > 0);
+            debug_assert!(!self.is_empty());
         }
 
         // typical 2 direction trick:
@@ -349,7 +365,7 @@ where
         };
 
         let mut back_cursor = capacity - 1;
-        let max = IndexT::max_value();
+        let max = Maximum::max_value();
         'main_loop: while let Some(cursor) = free_heap.pop() {
             let Reverse(cursor) = cursor;
 
@@ -357,7 +373,7 @@ where
             let mut living_target = loop {
                 let swap_target = &mut self.vec[back_cursor];
 
-                if cursor.to() >= back_cursor {
+                if cursor.cast_to() >= back_cursor {
                     break 'main_loop;
                 }
 
@@ -374,11 +390,11 @@ where
                 debug_assert!(back_cursor != 0); // note: we have at least 1 living slot otherwise the code would short circuit in the base case
             };
 
-            let dead_target = &mut self.vec[cursor.to()];
+            let dead_target = &mut self.vec[cursor.cast_to()];
             debug_assert!(matches!(dead_target, Slot::Dead { .. }));
 
             mem::swap(&mut living_target, dead_target);
-            f(cursor, IndexT::from(back_cursor));
+            f(cursor, IndexT::cast_from(back_cursor));
         }
 
         // pop out all trailing dead slots
@@ -417,20 +433,20 @@ where
         let mut linked_dead_set = HashSet::with_capacity(dead_set.len());
         let mut cursor = self.next_free;
         let capacity = self.capacity();
-        let max = IndexT::max_value();
-        linked_dead_set.insert(cursor.to());
+        let max = Maximum::max_value();
+        linked_dead_set.insert(cursor.cast_to());
 
         loop {
-            let cursor_usize = cursor.to();
+            let cursor_usize = cursor.cast_to();
             if cursor == max {
                 break;
             } else if cursor_usize >= capacity {
                 unreachable!("cursor is out of range");
             }
 
-            if let Slot::Dead { next_free } = &self.vec[cursor.to()] {
+            if let Slot::Dead { next_free } = &self.vec[cursor.cast_to()] {
                 cursor = *next_free;
-                linked_dead_set.insert(cursor.to());
+                linked_dead_set.insert(cursor.cast_to());
             }
         }
 
@@ -439,7 +455,7 @@ where
         {
             assert_eq!(dead_set.difference(&linked_dead_set).count(), 0);
             let mut diff = linked_dead_set.difference(&dead_set);
-            assert_eq!(diff.next().cloned(), Some(max.to()));
+            assert_eq!(diff.next().cloned(), Some(max.cast_to()));
             assert_eq!(diff.next().cloned(), None);
         }
 
@@ -447,9 +463,36 @@ where
     }
 }
 
+impl<DataT, IndexT> Tec<DataT, IndexT>
+where
+    IndexT: CastUsize + Ord + Copy + Maximum,
+    DataT: Clone,
+{
+    pub fn populate(data: DataT, count: usize) -> Self {
+        let vec = vec![Slot::Alive(data); count];
+        let count = vec.len();
+
+        Self {
+            vec,
+            next_free: Maximum::max_value(),
+            count,
+        }
+    }
+}
+
+impl<DataT, IndexT> Tec<DataT, IndexT>
+where
+    IndexT: CastUsize + Ord + Copy + Maximum,
+    DataT: Clone + Default,
+{
+    pub fn populate_defaults(count: usize) -> Self {
+        Self::populate(Default::default(), count)
+    }
+}
+
 impl<DataT, IndexT> Index<IndexT> for Tec<DataT, IndexT>
 where
-    IndexT: Default + CastUsize + Successor + Ord + Copy + Maximum,
+    IndexT: CastUsize + Ord + Copy + Maximum,
 {
     type Output = DataT;
 
@@ -460,7 +503,7 @@ where
 
 impl<DataT, IndexT> IndexMut<IndexT> for Tec<DataT, IndexT>
 where
-    IndexT: Default + CastUsize + Successor + Ord + Copy + Maximum,
+    IndexT: CastUsize + Ord + Copy + Maximum,
 {
     fn index_mut(&mut self, index: IndexT) -> &mut Self::Output {
         self.get_mut(index).expect("element not exist")
@@ -469,7 +512,7 @@ where
 
 impl<DataT, IndexT> Debug for Tec<DataT, IndexT>
 where
-    IndexT: Default + CastUsize + Successor + Ord + Copy + Maximum + Debug,
+    IndexT: Debug,
     DataT: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

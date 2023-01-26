@@ -1,4 +1,6 @@
-use crate::{CastUsize, Slot};
+use stable_id_traits::CastUsize;
+
+use crate::Slot;
 
 /**
 Used as an utility function as part of [`Tec::remove()`], returns
@@ -8,11 +10,11 @@ Used as an utility function as part of [`Tec::remove()`], returns
 pub(crate) fn find_start_of_trailing_dead_slots<IndexT: CastUsize, DataT>(
     slice: &[Slot<DataT, IndexT>],
 ) -> Option<(IndexT, usize)> {
-    let len = slice.len();
-
     if slice.is_empty() {
         return None;
     }
+
+    let len = slice.len();
 
     let len_minus_one = len - 1;
     let mut acc: Option<usize> = None;
@@ -22,7 +24,7 @@ pub(crate) fn find_start_of_trailing_dead_slots<IndexT: CastUsize, DataT>(
         let index = len_minus_one - i;
 
         if matches!(slot, Slot::Alive(_)) {
-            return acc.map(|index| (IndexT::from(index), count));
+            return acc.map(|index| (IndexT::cast_from(index), count));
         }
 
         count += 1;
@@ -30,7 +32,7 @@ pub(crate) fn find_start_of_trailing_dead_slots<IndexT: CastUsize, DataT>(
     }
 
     // all items in the slice are dead
-    Some((IndexT::from(0), count))
+    Some((IndexT::cast_from(0), count))
 }
 
 #[cfg(test)]

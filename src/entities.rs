@@ -4,16 +4,18 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use super::{Entities, Successor};
+use stable_id_traits::{Successor, Zero};
+
+use super::Entities;
 
 impl<DataT, IndexT> Entities<DataT, IndexT>
 where
-    IndexT: Successor + Clone + Copy + Default + Hash + Eq,
+    IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
 {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             data: HashMap::with_capacity(capacity),
-            ..Self::default()
+            seq: Default::default(),
         }
     }
 
@@ -39,7 +41,7 @@ where
     }
 
     pub fn alloc(&mut self, data: DataT) -> IndexT {
-        let next_id = self.seq.next();
+        let next_id = self.seq.next_value();
         self.data.insert(next_id, data);
 
         next_id
@@ -73,7 +75,7 @@ where
 
 impl<DataT, IndexT> Default for Entities<DataT, IndexT>
 where
-    IndexT: Default,
+    IndexT: Zero,
 {
     fn default() -> Self {
         Self {
@@ -85,7 +87,7 @@ where
 
 impl<DataT, IndexT> Index<IndexT> for Entities<DataT, IndexT>
 where
-    IndexT: Default + Successor + Clone + Copy + Hash + Eq,
+    IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
 {
     type Output = DataT;
 
@@ -96,7 +98,7 @@ where
 
 impl<DataT, IndexT> IndexMut<IndexT> for Entities<DataT, IndexT>
 where
-    IndexT: Default + Successor + Clone + Copy + Hash + Eq,
+    IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
 {
     fn index_mut(&mut self, index: IndexT) -> &mut Self::Output {
         self.get_mut(index).expect("element not exist")
@@ -110,11 +112,10 @@ mod tests {
     use crate::Entities;
 
     #[test]
-    #[should_panic(expected = "element not exist")]
     fn access_out_of_bound() {
         let mut entities = Entities::default();
         entities.alloc(1232);
-        entities[312u16];
+        assert_eq!(entities.get(312u16), None);
     }
 
     #[test]

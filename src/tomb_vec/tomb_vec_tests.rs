@@ -3,10 +3,51 @@ mod tests {
 
     use std::collections::HashSet;
 
+    use stable_id_traits::CastUsize;
+
     use crate::Tec;
 
+    #[derive(
+        Clone, Copy, Ord, PartialOrd, Eq, PartialEq, derive_stable_id::StableId, Debug, Hash,
+    )]
+    struct Id8(u8);
+
+    #[test]
+    fn create_remove_end_custom_id() {
+        let mut entities: Tec<u8, Id8> = Default::default();
+        (0..255).for_each(|i| {
+            assert_eq!(entities.alloc(i), Id8::cast_from(i.into()));
+        });
+
+        entities.remove(Id8::cast_from(27));
+        entities.remove(Id8::cast_from(254));
+        entities.remove(Id8::cast_from(15));
+        entities.remove(Id8::cast_from(252));
+        entities.remove(Id8::cast_from(251));
+        entities.remove(Id8::cast_from(253));
+
+        let mut records_old = HashSet::new();
+        let mut records_new = HashSet::new();
+
+        entities.coalesce(|old_id, new_id| {
+            records_old.insert(old_id);
+            records_new.insert(new_id);
+
+            // update all data that reference the old_id and replace them with new_id
+        });
+
+        assert_eq!(
+            records_old,
+            HashSet::from([Id8::cast_from(15), Id8::cast_from(27)])
+        );
+        assert_eq!(
+            records_new,
+            HashSet::from([Id8::cast_from(249), Id8::cast_from(250)])
+        );
+    }
+
     fn create_remove_end_1() -> Tec<u8, u8> {
-        let mut entities: Tec<_, _> = Default::default();
+        let mut entities: Tec<u8, u8> = Default::default();
         (0..255).for_each(|i| {
             assert_eq!(entities.alloc(i), i);
         });
@@ -88,7 +129,7 @@ mod tests {
         let entities = create_remove_end_1();
 
         let (data, _) = entities
-            .iter()
+            .iter_with_id()
             .rev()
             .next()
             .expect("should have at least 1 item");
@@ -101,7 +142,7 @@ mod tests {
         let entities = create_remove_end_2();
 
         let (data, _) = entities
-            .iter()
+            .iter_with_id()
             .rev()
             .next()
             .expect("should have at least 1 item");
@@ -151,7 +192,7 @@ mod tests {
         let expected = HashSet::from([27, 15, 25, 35, 34, 30]);
         assert_eq!(records_old, expected); // reclaiming from the last-issued
 
-        let unique_values: HashSet<_> = entities.iter().map(|(_, data)| *data).collect();
+        let unique_values: HashSet<_> = entities.iter_with_id().map(|(_, data)| *data).collect();
         assert_eq!(unique_values.len(), 224);
         assert!(records_new.iter().all(|index| *index > 223));
     }
@@ -272,12 +313,10 @@ mod tests {
             .iter()
             .take(90)
             .enumerate()
-            .all(|(index, (_, val))| index as u8 == *val));
+            .all(|(index, val)| index as u8 == *val));
         let temp: Vec<_> = tec.iter().skip(90).enumerate().collect();
         assert_eq!(temp.len(), 9);
-        assert!(temp
-            .iter()
-            .all(|&(index, (_, val))| (index as u8) + 91 == *val));
+        assert!(temp.iter().all(|&(index, val)| (index as u8) + 91 == *val));
 
         // insert at the dead slot
         let e1 = 123;

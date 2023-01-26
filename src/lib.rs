@@ -16,13 +16,9 @@ However, I saw these utility structures coming back multiple times so I'm making
  */
 use std::collections::{BTreeSet, HashMap};
 
-mod cast_usize;
 mod eids;
 mod entities;
-mod maximum;
-mod predecessor;
 mod sequence;
-mod successor;
 mod tomb_vec;
 
 /**
@@ -64,24 +60,23 @@ Once you claim an id you can't go back.
 use stable_id::Sequence;
 
 let mut s: Sequence<u8> = Default::default();
-assert_eq!(s.next(), 0);
-assert_eq!(s.next(), 1);
-assert_eq!(s.next(), 2);
+assert_eq!(s.next_value(), 0);
+assert_eq!(s.next_value(), 1);
+assert_eq!(s.next_value(), 2);
 
 let mut s = Sequence::continue_from(1234u16);
-assert_eq!(s.next(), 1234);
-assert_eq!(s.next(), 1235);
-assert_eq!(s.next(), 1236);
+assert_eq!(s.next_value(), 1234);
+assert_eq!(s.next_value(), 1235);
+assert_eq!(s.next_value(), 1236);
 ```
  */
-#[derive(Default)]
 pub struct Sequence<IndexT> {
     counter: IndexT,
 }
 
 /// inspired by https://github.com/fitzgen/generational-arena/blob/72975c8355949c2338976d944e047c9d9f447174/src/lib.rs#L178
 /// but without the generation stuff.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Slot<DataT, IndexT> {
     Dead { next_free: IndexT },
     Alive(DataT),
@@ -100,6 +95,19 @@ Use case: you have compact data that needs to be inserted & deleted while other 
 Don't use it if:
 - the data are sparse (use a HashMap or [`Entities`] instead)
 - you don't need to remove data (use a Vec **with** [`Sequence`] instead)
+
+```
+use stable_id::Tec;
+
+// use the `derive_more` crate to shortern the list
+#[derive(derive_stable_id::StableId, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+struct Id(u8);
+struct Data { field: usize }
+
+let mut storage: Tec<Data, Id> = Default::default();
+assert_eq!(storage.alloc(Data {field: 123}), Id(0));
+assert_eq!(storage.get(Id(0)).unwrap().field, 123);
+```
 */
 pub struct Tec<DataT, IndexT = usize> {
     vec: Vec<Slot<DataT, IndexT>>,
@@ -123,40 +131,4 @@ Use case: you have sparse data or you just want something simple for prototyping
 pub struct Entities<DataT, IndexT = usize> {
     data: HashMap<IndexT, DataT>,
     seq: Sequence<IndexT>,
-}
-
-/**
-Predecessor trait for numbers.
-*/
-pub trait Predecessor {
-    /// Return `self` - 1. Panics when `self` is at 0.
-    fn prev(self) -> Self;
-}
-
-/**
-Successor trait for numbers.
-*/
-pub trait Successor {
-    /// Return `self` + 1. Panics if `self` is at maximum value.
-    fn next(self) -> Self;
-}
-
-/**
-A trait that describes the max value of an unsigned integer. This trait is used to detect overflow.
-Also, it's used like a NULL terminator for the free list in [`Tec`].
-*/
-pub trait Maximum {
-    /// Generally this should be `X::MAX`, where `X` is an unsigned integer. The value is used to detect overflow.
-    fn max_value() -> Self;
-}
-
-/**
-Trait for casting between an unsigned integer (up to 32 bits) to a usize.
-Note: to() would panic if the value is greater or equal to the type's max.
-*/
-pub trait CastUsize {
-    /** Turning an unsigned integer into a usize. */
-    fn to(self) -> usize;
-    /** Turning a usize into an unsigned integer. */
-    fn from(val: usize) -> Self;
 }

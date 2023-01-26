@@ -1,6 +1,8 @@
 use std::hash::Hash;
 
-use crate::{Sequence, Successor};
+use stable_id_traits::Successor;
+
+use crate::Sequence;
 
 impl<IndexT> Sequence<IndexT>
 where
@@ -10,9 +12,20 @@ where
         Self { counter: start }
     }
 
-    pub fn next(&mut self) -> IndexT {
+    pub fn next_value(&mut self) -> IndexT {
         let ret = self.counter;
-        self.counter = ret.next();
+        self.counter = ret.next_value();
         ret
+    }
+}
+
+impl<IndexT> Default for Sequence<IndexT>
+where
+    IndexT: stable_id_traits::Zero,
+{
+    fn default() -> Self {
+        Self {
+            counter: IndexT::zero(),
+        }
     }
 }

@@ -1,10 +1,12 @@
 use std::mem;
 
-use crate::{Eids, Maximum, Predecessor, Successor};
+use stable_id_traits::{Maximum, Predecessor, Successor};
+
+use crate::Eids;
 
 impl<IndexT> Eids<IndexT>
 where
-    IndexT: Successor + Predecessor + Clone + Copy + Ord + Default + Maximum,
+    IndexT: Successor + Predecessor + Clone + Copy + Ord + Maximum,
 {
     pub fn claim(&mut self) -> IndexT {
         assert!(
@@ -16,15 +18,15 @@ where
             .iter()
             .next()
             .cloned()
-            .and_then(|x| {
+            .map(|id| {
                 // found an id in the free list, return it
-                let is_removed = self.freed.remove(&x);
+                let is_removed = self.freed.remove(&id);
                 assert!(is_removed, "freeing something not in the database");
-                Some(x)
+                id
             })
             .unwrap_or_else(|| {
                 // otherwise increment the id and return it
-                let next = self.next.next();
+                let next = self.next.next_value();
                 mem::replace(&mut self.next, next)
             })
     }
@@ -79,7 +81,7 @@ where
         }
 
         while let Some(freed) = self.freed.pop_last() {
-            let target = self.next.prev();
+            let target = self.next.prev_value();
             self.next = target;
 
             if target != freed {
