@@ -6,6 +6,30 @@ This library was created for my game development endeavor.
 Not going great on that front as I kept restarting the project.
 However, I saw these utility structures coming back multiple times so I'm making a crate for them.
 
+In version 0.2.0, you can supply custom Id tuple structs that are based on unsigned integers (from 8bit to 64bits).
+The id type needs to be derived with the following:
+```
+// Minimal needed for all traits that are introduced by this crate.
+#[derive(derive_stable_id::StableId)]
+struct Id(u8);
+
+
+// These are needed under normal circumstances.
+#[derive(
+    Default,
+    Clone, Copy,
+    PartialEq, Eq, Hash,
+    PartialOrd, Ord,
+    derive_stable_id::StableId,
+)]
+struct Id32(u32);
+
+let x: stable_id::Eids<Id32> = Default::default();
+let x: stable_id::Sequence<Id32> = Default::default();
+let x: stable_id::Entities<String, Id32> = Default::default();
+let x: stable_id::Tec<String, Id32> = Default::default();
+```
+
 # Use cases
 | Struct        | Type      | Suggestion    | Description |
 | -----------   | ----      | ----          |-----------  |

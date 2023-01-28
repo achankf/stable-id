@@ -9,14 +9,9 @@ However, I saw these utility structures coming back multiple times so I'm making
 # installation
 
 ```sh
-cargo add stable-id
+cargo add stable-id stable-id-traits derive-stable-id
 ```
 
-# Use cases
+# Documentation
 
-| Struct       | Type   | Suggestion  | Description                                                                                                                              |
-| ------------ | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| [`Eids`]     | Id     | Dense data  | You want a way to create ids, and **do** care about recovering ids.                                                                      |
-| [`Sequence`] | Id     | Sparse data | You want a way to create ids, and **don't** care about recovering ids, but you don't want to use the HashMap-based [`Entities`] struct.  |
-| [`Entities`] | Memory | Sparse data | You want mix sequence (ids not recycled) and HashMap together.                                                                           |
-| [`Tec`]      | Memory | Dense data  | You want to use a vec to store data, but need constant entity removal. [`Tec`] reclaims the spaces for you as you insert more new items. |
+Click [here](https://docs.rs/stable-id/latest/stable_id/) to learn how to use this crate.
