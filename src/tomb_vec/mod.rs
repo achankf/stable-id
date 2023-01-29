@@ -490,6 +490,16 @@ where
     }
 }
 
+impl<DataT, IndexT> Tec<DataT, IndexT>
+where
+    IndexT: CastUsize + Ord + Copy + Maximum,
+    DataT: Default,
+{
+    pub fn alloc_default(&mut self) -> IndexT {
+        self.alloc(Default::default())
+    }
+}
+
 impl<DataT, IndexT> Index<IndexT> for Tec<DataT, IndexT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
