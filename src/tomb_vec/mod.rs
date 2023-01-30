@@ -346,10 +346,20 @@ where
     }
 
     /**
-    Coalesce the data by removing the dead slots. Takes a function "f"
-    that allows you to deal with changes made by the process.
+    Coalesce the data by removing the dead slots. Takes a function `f(old_id, new_id)`
+    that allows you to deal with changes made by the process, i.e. say in your game model,
+    you have an entity which occupied `old_id`, you would need to change all references
+    to use the `new_id`.
+    This is intended to be used before saving a game.
 
     Note: this algorithm is O(n lg n) due to the use of binary heap.
+
+    TODO: use utility_ratio to see decide to use binary heap or just a 2-pointer-linear scan.
+    if utility_ratio > lg(self.len()) / self.len() {
+        // use binary heap
+    } else {
+        // use 2 pointers for linear scans in opposite direction
+    }
     */
     pub fn coalesce<F>(&mut self, mut f: F)
     where
@@ -408,7 +418,7 @@ where
             debug_assert!(matches!(dead_target, Slot::Dead { .. }));
 
             mem::swap(&mut living_target, dead_target);
-            f(cursor, IndexT::cast_from(back_cursor));
+            f(IndexT::cast_from(back_cursor), cursor);
         }
 
         // pop out all trailing dead slots
@@ -425,6 +435,8 @@ where
                 }
             }
         }
+
+        debug_assert_eq!(self.len(), self.capacity());
     }
 
     fn check_consistency(&self) -> bool {

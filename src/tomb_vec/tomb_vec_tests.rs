@@ -47,11 +47,11 @@ mod tests {
 
         assert_eq!(
             records_old,
-            HashSet::from([Id8::cast_from(15), Id8::cast_from(27)])
+            HashSet::from([Id8::cast_from(250), Id8::cast_from(249)])
         );
         assert_eq!(
             records_new,
-            HashSet::from([Id8::cast_from(249), Id8::cast_from(250)])
+            HashSet::from([Id8::cast_from(15), Id8::cast_from(27)])
         );
     }
 
@@ -180,8 +180,8 @@ mod tests {
             // update all data that reference the old_id and replace them with new_id
         });
 
-        assert_eq!(records_old, HashSet::from([15, 27]));
-        assert_eq!(records_new, HashSet::from([249, 250]));
+        assert_eq!(records_old, HashSet::from([249, 250]));
+        assert_eq!(records_new, HashSet::from([15, 27]));
     }
 
     #[test]
@@ -198,12 +198,13 @@ mod tests {
             // update all data that reference the old_id and replace them with new_id
         });
 
-        let expected = HashSet::from([27, 15, 25, 35, 34, 30]);
-        assert_eq!(records_old, expected); // reclaiming from the last-issued
+        assert!(records_old.iter().all(|index| *index > 223));
 
         let unique_values: HashSet<_> = entities.iter_with_id().map(|(_, data)| *data).collect();
         assert_eq!(unique_values.len(), 224);
-        assert!(records_new.iter().all(|index| *index > 223));
+
+        let expected = HashSet::from([27, 15, 25, 35, 34, 30]);
+        assert_eq!(records_new, expected); // reclaiming from the last-issued
     }
 
     #[test]
