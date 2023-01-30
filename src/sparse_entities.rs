@@ -4,13 +4,13 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use stable_id_traits::{Successor, Zero};
+use stable_id_traits::Successor;
 
 use super::SparseEntities;
 
 impl<DataT, IndexT> SparseEntities<DataT, IndexT>
 where
-    IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
+    IndexT: Successor + Clone + Copy + Hash + Eq + Default,
 {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -75,7 +75,7 @@ where
 
 impl<DataT, IndexT> Default for SparseEntities<DataT, IndexT>
 where
-    IndexT: Zero,
+    IndexT: Default,
 {
     fn default() -> Self {
         Self {
@@ -87,7 +87,7 @@ where
 
 impl<DataT, IndexT> Index<IndexT> for SparseEntities<DataT, IndexT>
 where
-    IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
+    IndexT: Successor + Clone + Copy + Hash + Eq + Default,
 {
     type Output = DataT;
 
@@ -98,7 +98,7 @@ where
 
 impl<DataT, IndexT> IndexMut<IndexT> for SparseEntities<DataT, IndexT>
 where
-    IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
+    IndexT: Successor + Clone + Copy + Hash + Eq + Default,
 {
     fn index_mut(&mut self, index: IndexT) -> &mut Self::Output {
         self.get_mut(index).expect("element not exist")

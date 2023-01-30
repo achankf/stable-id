@@ -18,14 +18,3 @@ where
         ret
     }
 }
-
-impl<IndexT> Default for Sequence<IndexT>
-where
-    IndexT: stable_id_traits::Zero,
-{
-    fn default() -> Self {
-        Self {
-            counter: IndexT::zero(),
-        }
-    }
-}
