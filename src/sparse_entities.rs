@@ -6,9 +6,9 @@ use std::{
 
 use stable_id_traits::{Successor, Zero};
 
-use super::Entities;
+use super::SparseEntities;
 
-impl<DataT, IndexT> Entities<DataT, IndexT>
+impl<DataT, IndexT> SparseEntities<DataT, IndexT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
 {
@@ -60,7 +60,7 @@ where
     }
 }
 
-impl<DataT, IndexT> IntoIterator for Entities<DataT, IndexT>
+impl<DataT, IndexT> IntoIterator for SparseEntities<DataT, IndexT>
 where
     IndexT: Successor + Clone + Copy + Default + Hash + Eq,
 {
@@ -73,7 +73,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Default for Entities<DataT, IndexT>
+impl<DataT, IndexT> Default for SparseEntities<DataT, IndexT>
 where
     IndexT: Zero,
 {
@@ -85,7 +85,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Index<IndexT> for Entities<DataT, IndexT>
+impl<DataT, IndexT> Index<IndexT> for SparseEntities<DataT, IndexT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
 {
@@ -96,7 +96,7 @@ where
     }
 }
 
-impl<DataT, IndexT> IndexMut<IndexT> for Entities<DataT, IndexT>
+impl<DataT, IndexT> IndexMut<IndexT> for SparseEntities<DataT, IndexT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Zero,
 {
@@ -109,11 +109,11 @@ where
 mod tests {
     use std::collections::HashMap;
 
-    use crate::Entities;
+    use crate::SparseEntities;
 
     #[test]
     fn access_out_of_bound() {
-        let mut entities = Entities::default();
+        let mut entities = SparseEntities::default();
         entities.alloc(1232);
         assert_eq!(entities.get(312u16), None);
     }
@@ -121,16 +121,16 @@ mod tests {
     #[test]
     #[should_panic(expected = "element not exist")]
     fn access_out_of_bound_mut() {
-        let mut entities = Entities::default();
+        let mut entities = SparseEntities::default();
         entities.alloc(1232);
         entities[312u16] = 3333;
     }
 
     #[test]
     fn normal() {
-        let mut entities = Entities::default();
+        let mut entities = SparseEntities::default();
 
-        fn check_all(entities: &Entities<&str>) {
+        fn check_all(entities: &SparseEntities<&str>) {
             entities
                 .iter()
                 .for_each(|(id, data)| assert_eq!(entities[id], *data));
