@@ -66,7 +66,7 @@ entities.unclaim(id);
 See [`Self::coalesce()`] if you want to pack ids together, like when you're trying to tighten up an array and
 saving it into a database/save file (i.e. when game players are saving their progress).
 */
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Eids<IndexT>
 where
     IndexT: Ord,
@@ -94,13 +94,14 @@ assert_eq!(s.next_value(), 1235);
 assert_eq!(s.next_value(), 1236);
 ```
  */
+#[derive(Clone, Default)]
 pub struct Sequence<IndexT> {
     counter: IndexT,
 }
 
 /// inspired by https://github.com/fitzgen/generational-arena/blob/72975c8355949c2338976d944e047c9d9f447174/src/lib.rs#L178
 /// but without the generation stuff.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum Slot<DataT, IndexT> {
     Dead { next_free: IndexT },
     Alive(DataT),
@@ -133,6 +134,7 @@ assert_eq!(storage.alloc(Data {field: 123}), Id(0));
 assert_eq!(storage.get(Id(0)).unwrap().field, 123);
 ```
 */
+#[derive(Clone)]
 pub struct Tec<DataT, IndexT = usize> {
     vec: Vec<Slot<DataT, IndexT>>,
     /// invariants: the free index must be either
