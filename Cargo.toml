@@ -12,5 +12,5 @@ lto = true
 debug = true
 
 [dependencies]
-derive-stable-id = "0.1.0"
-stable-id-traits = "0.1.1"
+derive-stable-id = "0.2.0"
+stable-id-traits = "0.2.0"
