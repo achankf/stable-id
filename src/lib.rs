@@ -40,7 +40,10 @@ let x: stable_id::Tec<String, Id32> = Default::default();
  */
 use std::collections::{BTreeSet, HashMap};
 
+use rustc_hash::FxHashMap;
+
 mod eids;
+mod entities;
 mod sequence;
 mod sparse_entities;
 mod tomb_vec;
@@ -158,5 +161,24 @@ Use cases:
 */
 pub struct SparseEntities<DataT, IndexT = usize> {
     data: HashMap<IndexT, DataT>,
+    seq: Sequence<IndexT>,
+}
+
+/**
+This is a lazily memory-compact version of [`SparseEntities`].
+Use cases are the same but there are different tradeoffs.
+
+
+# Tradeoff vs [`SparseEntities`].
+- this struct uses a hash-based virtual table to translate issued ids into an id used internally by its backing collection [`Tec`].
+  So accessing items should be similar -- it's dictated by HashMap's access complexity, since once it finds
+  the internal id, a random access follows.
+- removing items is O([`Tec::remove()`]) = O(n lg n) though I have plans to make it O(n). An added benefits is [`remove()`] will also
+  try to compact the memory by removing dead slots from [`Tec`] when there's a majority of dead slots -- it's another O(n) pass.
+*/
+#[derive(Clone)]
+pub struct Entities<DataT, IndexT = usize> {
+    vtable: FxHashMap<IndexT, IndexT>, // virtual id -> physical id
+    data: Tec<DataT, IndexT>,
     seq: Sequence<IndexT>,
 }
