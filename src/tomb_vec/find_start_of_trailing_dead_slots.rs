@@ -10,9 +10,9 @@ Used as an utility function as part of [`Tec::remove()`], returns
 pub(crate) fn find_start_of_trailing_dead_slots<IndexT: CastUsize, DataT>(
     slice: &[Slot<DataT, IndexT>],
 ) -> Option<(IndexT, usize)> {
-    if slice.is_empty() {
-        return None;
-    }
+    // This is a helper function of another helper function `remove_trailing_dead_slots` for `remove()`.
+    // Getting to this point means an element is already gone.
+    debug_assert!(!slice.is_empty());
 
     let len = slice.len();
 
@@ -42,10 +42,10 @@ mod tests {
     };
 
     #[test]
+    #[should_panic]
     fn base_case1() {
         let data: [Slot<usize, usize>; 0] = [];
-        let result = find_start_of_trailing_dead_slots(&data);
-        assert_eq!(result, None);
+        find_start_of_trailing_dead_slots(&data);
     }
 
     #[test]

@@ -1,14 +1,23 @@
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     use stable_id_traits::CastUsize;
 
     use crate::Tec;
 
     #[derive(
-        Clone, Copy, Ord, PartialOrd, Eq, PartialEq, derive_stable_id::StableId, Debug, Hash,
+        Default,
+        Clone,
+        Copy,
+        Ord,
+        PartialOrd,
+        Eq,
+        PartialEq,
+        derive_stable_id::StableId,
+        Debug,
+        Hash,
     )]
     struct Id8(u8);
 
@@ -341,5 +350,134 @@ mod tests {
         assert_eq!(tec.len(), 100);
         assert_eq!(tec[i3], e3);
         assert_eq!(i3, 20);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut tec: Tec<usize> = Default::default();
+
+        let total = 10;
+
+        for i in 0..total {
+            assert_eq!(i, tec.alloc(i));
+        }
+
+        for i in total..0 {
+            assert_eq!(tec.len(), i);
+            assert_eq!(i, tec.remove(i));
+        }
+    }
+
+    #[test]
+    fn test_remove2() {
+        let mut tec: Tec<usize> = Default::default();
+
+        let remove_items = [1, 4, 5, 3, 2, 0];
+
+        for i in 0..remove_items.len() {
+            assert_eq!(i, tec.alloc(i));
+        }
+
+        for item in remove_items {
+            assert_eq!(item, tec.remove(item));
+        }
+    }
+
+    #[test]
+    fn test_remove3() {
+        // edge-case: removing items in a way that eliminates all dead slots,
+        //          so that the head would be pointing to an invalid element
+
+        let mut tec: Tec<usize> = Default::default();
+
+        let remove_items = [0, 3, 2, 1, 4];
+
+        for i in 0..remove_items.len() {
+            assert_eq!(i, tec.alloc(i));
+        }
+
+        for item in remove_items {
+            assert_eq!(item, tec.remove(item));
+        }
+    }
+
+    #[test]
+    fn iter() {
+        let mut entities = Tec::default();
+
+        fn check_all(entities: &Tec<String>) {
+            entities
+                .iter_with_id()
+                .for_each(|(id, data)| assert_eq!(entities[id], *data));
+        }
+
+        vec![
+            "0".to_owned(),
+            "1".to_owned(),
+            "2".to_owned(),
+            "3".to_owned(),
+            "4".to_owned(),
+            "5".to_owned(),
+        ]
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, data| {
+            acc.insert(entities.alloc(data.clone()), data);
+            acc
+        })
+        .into_iter()
+        .for_each(|(id, data)| assert_eq!(entities[id], data));
+
+        assert_eq!(entities.remove(1), "1".to_owned());
+        check_all(&entities);
+
+        assert_eq!(entities.remove(4), "4".to_owned());
+        check_all(&entities);
+
+        assert_eq!(entities.remove(5), "5".to_owned());
+        check_all(&entities);
+
+        assert_eq!(entities.remove(2), "2".to_owned());
+        check_all(&entities);
+
+        let data_with_id = HashSet::from([(3, "3".to_owned()), (0, "0".to_owned())]);
+
+        assert_eq!(
+            HashSet::from(["3".to_owned(), "0".to_owned()]),
+            entities.iter().cloned().collect(),
+        );
+
+        assert_eq!(
+            data_with_id,
+            entities
+                .iter_with_id()
+                .map(|(id, value)| (id, value.to_owned()))
+                .collect(),
+        );
+
+        assert_eq!(data_with_id, entities.clone().into_iter_with_id().collect(),);
+
+        entities
+            .iter_mut_with_id()
+            .for_each(|(_, value)| *value = format!("1{value}"));
+
+        assert_eq!(
+            HashSet::from([(3, "13".to_owned()), (0, "10".to_owned())]),
+            entities
+                .iter_with_id()
+                .map(|(id, value)| (id, value.to_owned()))
+                .collect(),
+        );
+
+        entities
+            .iter_mut()
+            .for_each(|value| *value = format!("1{value}"));
+
+        assert_eq!(
+            HashSet::from([(3, "113".to_owned()), (0, "110".to_owned())]),
+            entities
+                .iter_with_id()
+                .map(|(id, value)| (id, value.to_owned()))
+                .collect(),
+        );
     }
 }
