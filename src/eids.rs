@@ -21,7 +21,7 @@ where
             .map(|id| {
                 // found an id in the free list, return it
                 let is_removed = self.freed.remove(&id);
-                assert!(is_removed, "freeing something not in the database");
+                debug_assert!(is_removed, "freeing something not in the database");
                 id
             })
             .unwrap_or_else(|| {
@@ -35,7 +35,7 @@ where
         assert!(val < self.next, "not a valid entity");
 
         let is_double_inserted = self.freed.insert(val);
-        assert!(is_double_inserted, "double-freeing entity")
+        debug_assert!(is_double_inserted, "double-freeing entity")
     }
 
     /**
