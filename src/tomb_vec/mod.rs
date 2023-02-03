@@ -171,7 +171,7 @@ where
             }
 
             // updating the tail to the max
-            if self.capacity() == 0 {
+            if self.is_empty() {
                 self.clear(); // this updates metadata after popping the vec
             } else if let Some(prev_keep) = retained_slot_cursor {
                 if let Slot::Dead { next_free } = &mut self.vec[prev_keep.cast_to()] {
@@ -194,8 +194,7 @@ where
 
     /** Panic if index is invalid */
     pub fn remove(&mut self, index: IndexT) -> DataT {
-        let capacity = self.capacity();
-        assert!(capacity > 0, "removing an item from an empty container");
+        assert!(!self.is_empty(), "removing an item from an empty container");
 
         // invariants: the free index must be either
         //      - pointer some dead slot within the vec
