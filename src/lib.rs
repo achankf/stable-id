@@ -27,16 +27,18 @@ struct Id32(u32);
 let x: stable_id::Eids<Id32> = Default::default();
 let x: stable_id::Sequence<Id32> = Default::default();
 let x: stable_id::SparseEntities<String, Id32> = Default::default();
+let x: stable_id::Entities<String, Id32> = Default::default();
 let x: stable_id::Tec<String, Id32> = Default::default();
 ```
 
 # Use cases
-| Struct                | Type      | Suggestion    | Description |
-| -----------           | ----      | ----          |-----------  |
-| [`Eids`]              | Id        | Dense data    | You want a way to create ids, and **do** care about recovering ids. |
-| [`Sequence`]          | Id        | Sparse data   | You want a way to create ids, and **don't** care about recovering ids, but you don't want to use the HashMap-based [`Entities`] struct. |
-| [`SparseEntities`]    | Memory    | Sparse data   | You want mix sequence (ids not recycled) and HashMap together. |
-| [`Tec`]               | Memory    | Dense data    | You want to use a vec to store data, but need constant entity removal. [`Tec`] reclaims the spaces for you as you insert more new items.
+| Struct                | Type          | Suggestion    | Description |
+| -----------           | ----          | ----          |-----------  |
+| [`Eids`]              | Id            | Dense data    | You want a way to create ids, and **do** care about recovering ids. |
+| [`Sequence`]          | Id            | Sparse data   | You want a way to create ids, and **don't** care about recovering ids, but you don't want to use the HashMap-based [`Entities`] struct. |
+| [`Entities`]          | Collection    | Dense data    | The go-to collection of this library.
+| [`SparseEntities`]    | Collection    | Sparse data   | You want mix sequence (ids not recycled) and HashMap together. |
+| [`Tec`]               | Collection    | Dense data    | You want to use a vec to store data, but need constant entity removal. [`Tec`] reclaims the spaces for you as you insert more new items.
  */
 use std::collections::{BTreeSet, HashMap};
 
