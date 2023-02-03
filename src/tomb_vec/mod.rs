@@ -194,11 +194,6 @@ where
 
     /** Panic if index is invalid */
     pub fn remove(&mut self, index: IndexT) -> DataT {
-        assert!(
-            index < Maximum::max_value(),
-            "trying to remove an out of bound item"
-        );
-
         let capacity = self.capacity();
         assert!(capacity > 0, "removing an item from an empty container");
 
@@ -239,7 +234,6 @@ where
     }
 
     pub fn get(&self, index: IndexT) -> Option<&DataT> {
-        assert!(index < Maximum::max_value(), "index is out of bound");
         self.vec.get(index.cast_to()).and_then(|slot| match slot {
             Slot::Alive(data) => Some(data),
             Slot::Dead { .. } => None,
@@ -247,7 +241,6 @@ where
     }
 
     pub fn get_mut(&mut self, index: IndexT) -> Option<&mut DataT> {
-        assert!(index < Maximum::max_value(), "index is out of bound");
         self.vec
             .get_mut(index.cast_to())
             .and_then(|slot| match slot {
