@@ -354,6 +354,50 @@ mod tests {
     }
 
     #[test]
+    fn test_remove_then_fill() {
+        // make sure Tec can reclaim 100 slots after removing 100 slots.
+
+        let mut tec: Tec<u8, u8> = Default::default();
+
+        for i in 0..255 {
+            assert_eq!(i, tec.alloc(i));
+        }
+
+        for i in 50..150 {
+            assert_eq!(i, tec.remove(i));
+        }
+
+        assert_eq!(tec.len(), 155);
+
+        for i in 0..100 {
+            tec.alloc(i + 50);
+        }
+    }
+
+    #[test]
+    #[should_panic = "exceed storage limit"]
+    fn test_remove_then_fill_overflow() {
+        // similar to test_remove_then_fill(), but this one alloc() one more item, causing a panic
+        let mut tec: Tec<u8, u8> = Default::default();
+
+        for i in 0..255 {
+            assert_eq!(i, tec.alloc(i));
+        }
+
+        for i in 50..150 {
+            assert_eq!(i, tec.remove(i));
+        }
+
+        assert_eq!(tec.len(), 155);
+
+        for i in 0..100 {
+            tec.alloc(i + 50);
+        }
+
+        tec.alloc(11);
+    }
+
+    #[test]
     fn test_remove() {
         let mut tec: Tec<usize> = Default::default();
 

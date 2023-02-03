@@ -65,10 +65,6 @@ where
     the next free node needs to be count + 1.
     */
     pub fn alloc(&mut self, data: DataT) -> IndexT {
-        let len = self.len();
-
-        assert!(len < IndexT::max_value().cast_to(), "exceed storage limit");
-
         let original_free_index = self.next_free;
 
         let next_slot = self.vec.get_mut(original_free_index.cast_to());
@@ -84,6 +80,12 @@ where
             original_free_index
         } else {
             let result_index = self.capacity();
+
+            assert!(
+                result_index < IndexT::max_value().cast_to(),
+                "exceed storage limit"
+            );
+
             self.vec.push(Slot::Alive(data));
             self.next_free = Maximum::max_value();
             IndexT::cast_from(result_index)
