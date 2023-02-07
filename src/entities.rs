@@ -6,7 +6,7 @@ use std::{
 use rustc_hash::FxHashMap;
 use stable_id_traits::{CastUsize, Maximum, Successor};
 
-use crate::{Slot, Tec};
+use crate::Tec;
 
 use super::Entities;
 
