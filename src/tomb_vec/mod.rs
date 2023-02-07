@@ -1,4 +1,3 @@
-mod find_start_of_trailing_dead_slots;
 mod tomb_vec_tests;
 
 use std::fmt::Debug;
@@ -13,7 +12,6 @@ use std::{
 
 use stable_id_traits::{CastUsize, Maximum};
 
-use crate::tomb_vec::find_start_of_trailing_dead_slots::find_start_of_trailing_dead_slots;
 use crate::{Slot, Tec};
 
 impl<DataT, IndexT> Default for Tec<DataT, IndexT>
@@ -112,103 +110,6 @@ where
         result_index
     }
 
-    /**
-    After removing an item, the target slot might expose many dead slots in the end of the vec.
-    We need to remove them to maintain the invariant that trailing slot must be alive.
-     */
-    fn remove_trailing_dead_slots(&mut self) {
-        // This is a helper function for remove() when the collection is not empty.
-        // Getting to this point means an element is already gone.
-        debug_assert!(!self.vec.is_empty());
-
-        let result = find_start_of_trailing_dead_slots(&self.vec);
-
-        if let Some((last_alive_length, remove_count)) = result {
-            let capacity = self.capacity();
-
-            if remove_count == capacity {
-                self.clear();
-                return;
-            }
-
-            debug_assert!(remove_count < capacity);
-
-            // do a linked-list-style "retain()" to remove anything at and beyond `last_trailing_dead_slot`
-            // 2 cursors for traversing the linked list:
-
-            // cursor for doing a linear scan of the free list
-            let mut cursor = self.next_free;
-
-            // cursor for keeping track of valid nodes of the free list (ones that aren't not going to be popped)
-            let mut retained_slot_cursor: Option<IndexT> = None;
-
-            // tail of linked-list is an index points to `len` (just one outside the `vec`)
-            loop {
-                // check the next item in the link
-                if let Slot::Dead { next_free } = self.vec[cursor.cast_to()] {
-                    debug_assert!(self.check_free_link_invariant(next_free));
-
-                    if next_free.cast_to() >= capacity {
-                        break;
-                    }
-
-                    cursor = next_free;
-
-                    // ignore anything that's going to be removed from the free list
-                    if cursor >= last_alive_length {
-                        continue;
-                    }
-
-                    if let Some(prev_keep) = retained_slot_cursor {
-                        // remove trailing dead slots in between by updating the link between 2 dead slots
-                        if let Slot::Dead { next_free } = &mut self.vec[prev_keep.cast_to()] {
-                            *next_free = cursor;
-                        } else {
-                            unreachable!("reaching an Alive slot when traversing the free list")
-                        }
-                    } else {
-                        // edge case: the free-list head is deallocated due to being a trailing dead slot
-                        // update the head link that's stored in the Tec struct
-                        self.next_free = next_free;
-                    }
-
-                    // keep the current link and move on to the next non-trailing dead slot
-                    retained_slot_cursor = Some(cursor);
-                } else {
-                    unreachable!("found an alive slot in the free list");
-                }
-            }
-
-            // deallocate trailing dead slots
-            self.vec.truncate(self.vec.len() - remove_count);
-
-            // updating the tail to the max
-            if self.is_empty() {
-                self.clear(); // this updates metadata after popping the vec
-            } else if let Some(prev_keep) = retained_slot_cursor {
-                // we need to make sure to point the (possibly) new end of the free list to the sentinel value
-                if let Slot::Dead { next_free } = &mut self.vec[prev_keep.cast_to()] {
-                    *next_free = Maximum::max_value();
-                }
-            } else {
-                // edge-case: an item is being removed from the end
-                debug_assert!(self.next_free.cast_to() >= self.capacity());
-                self.set_sentinal();
-            }
-        }
-
-        // invariant: we have filter out all of the trailing dead slots
-
-        if self.next_free.cast_to() > self.capacity() {
-            // edge-case: the head was a trailing dead slot and it was being removed.
-            //          This means the collection has no more dead slot.
-            // test case: tomb_vec::tomb_vec_tests::tests::test_remove3
-            self.set_sentinal();
-        }
-
-        debug_assert!(self.check_consistency());
-    }
-
     /** Panic if index is invalid */
     pub fn remove(&mut self, index: IndexT) -> DataT {
         assert!(!self.is_empty(), "removing an item from an empty container");
@@ -242,10 +143,6 @@ where
             }
             Slot::Dead { .. } => panic!("removing a dead item"),
         };
-
-        self.remove_trailing_dead_slots();
-
-        debug_assert!(self.check_consistency());
 
         data
     }

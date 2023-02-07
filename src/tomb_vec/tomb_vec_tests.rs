@@ -123,14 +123,14 @@ mod tests {
         assert_eq!(entities.len(), 2);
 
         // remove everything
-        print!("1");
         entities.remove(0);
-        print!("2");
         entities.remove(1);
-        print!("3");
+        assert!(entities.is_empty());
 
-        assert_eq!(entities.alloc(23), 0);
-        assert_eq!(entities.alloc(23), 1);
+        entities.alloc(23);
+        assert_eq!(entities.len(), 1);
+        entities.alloc(23);
+        assert_eq!(entities.len(), 2);
     }
 
     #[test]
