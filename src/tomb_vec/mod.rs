@@ -372,6 +372,9 @@ where
     IndexT: CastUsize + Ord + Copy + Maximum,
     DataT: Clone,
 {
+    /**
+    Populate `count` number of items by cloning the given `data`.
+    */
     pub fn populate(data: DataT, count: usize) -> Self {
         let vec = vec![Slot::Alive(data); count];
         let count = vec.len();
@@ -389,6 +392,9 @@ where
     IndexT: CastUsize + Ord + Copy + Maximum,
     DataT: Clone + Default,
 {
+    /**
+    Populate `count` number of items with the default value.
+    */
     pub fn populate_defaults(count: usize) -> Self {
         Self::populate(Default::default(), count)
     }

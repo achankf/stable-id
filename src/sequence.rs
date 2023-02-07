@@ -1,12 +1,10 @@
-use std::hash::Hash;
-
 use stable_id_traits::Successor;
 
 use crate::Sequence;
 
 impl<IndexT> Sequence<IndexT>
 where
-    IndexT: Successor + Clone + Copy + Hash + Eq,
+    IndexT: Successor + Clone + Copy,
 {
     pub const fn continue_from(start: IndexT) -> Self {
         Self { counter: start }

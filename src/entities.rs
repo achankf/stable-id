@@ -6,7 +6,7 @@ use std::{
 use rustc_hash::FxHashMap;
 use stable_id_traits::{CastUsize, Maximum, Successor};
 
-use crate::Tec;
+use crate::{Sequence, Tec};
 
 use super::Entities;
 
@@ -146,6 +146,42 @@ where
     }
 }
 
+impl<DataT, IndexT> Entities<DataT, IndexT>
+where
+    IndexT: Successor + CastUsize + Ord + Copy + Maximum + Hash,
+    DataT: Clone,
+{
+    /**
+    Populate `count` number of items by cloning the given `data`.
+    */
+    pub fn populate(data: DataT, count: usize) -> Self {
+        let data = Tec::populate(data, count);
+        let seq = Sequence::continue_from(CastUsize::cast_from(count));
+
+        let vtable = (0..count)
+            .map(|i| {
+                let i = CastUsize::cast_from(i);
+                (i, i)
+            })
+            .collect();
+
+        Self { vtable, data, seq }
+    }
+}
+
+impl<DataT, IndexT> Entities<DataT, IndexT>
+where
+    IndexT: CastUsize + Ord + Copy + Maximum + Successor + Hash,
+    DataT: Clone + Default,
+{
+    /**
+    Populate `count` number of items with the default value.
+    */
+    pub fn populate_defaults(count: usize) -> Self {
+        Self::populate(Default::default(), count)
+    }
+}
+
 impl<DataT, IndexT> Index<IndexT> for Entities<DataT, IndexT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Default + CastUsize + Ord + Maximum,
@@ -185,6 +221,16 @@ mod tests {
         let mut entities = Entities::default();
         entities.alloc(1232);
         entities[312u16] = 3333;
+    }
+
+    #[test]
+    fn populate() {
+        let count = 50;
+        let mut entities = Entities::<usize, u8>::populate_defaults(count);
+
+        assert_eq!(entities.len(), count);
+        assert_eq!(entities.alloc(54354534), count as u8);
+        assert_eq!(entities.len(), count + 1);
     }
 
     #[test]

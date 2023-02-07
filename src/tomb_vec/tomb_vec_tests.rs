@@ -22,6 +22,16 @@ mod tests {
     struct Id8(u8);
 
     #[test]
+    fn populate() {
+        let count = 50;
+        let mut entities = Tec::<usize, u8>::populate_defaults(count);
+
+        assert_eq!(entities.len(), count);
+        assert_eq!(entities.alloc(54354534), count as u8);
+        assert_eq!(entities.len(), count + 1);
+    }
+
+    #[test]
     fn create_remove_end_custom_id() {
         let mut entities: Tec<u8, Id8> = Default::default();
         (0..255).for_each(|i| {
