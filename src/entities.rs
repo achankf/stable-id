@@ -6,7 +6,7 @@ use std::{
 use rustc_hash::FxHashMap;
 use stable_id_traits::{CastUsize, Maximum, Successor};
 
-use crate::Tec;
+use crate::{Slot, Tec};
 
 use super::Entities;
 
@@ -57,14 +57,22 @@ where
         if let Some(&physical_id) = physical_id {
             let data = self.data.remove(physical_id);
 
-            self.vtable
-                .remove(&virtual_id)
-                .expect("cannot remove virtual id"); // contradiction: we just found the physical id
+            self.vtable.remove(&virtual_id).expect("cannot remove item"); // contradiction: we just found the physical id
 
             assert_eq!(self.vtable.len(), self.data.len());
 
-            if self.data.capacity() >= 2 * self.len() {
-                self.coalesce();
+            let len = self.len();
+            let capacity = self.data.capacity();
+            let num_dead_slots = capacity - len;
+            let logn = len.checked_ilog2();
+
+            if let Some(logn) = logn {
+                // we can perform the cast because log(MAX) is always smaller than MAX
+                if num_dead_slots >= logn.cast_to() {
+                    self.coalesce();
+                }
+            } else {
+                debug_assert!(len == 0);
             }
 
             Some(data)

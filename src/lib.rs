@@ -40,7 +40,7 @@ let x: stable_id::Tec<String, Id32> = Default::default();
 | [`SparseEntities`]    | Collection    | Sparse data   | You want mix sequence (ids not recycled) and HashMap together. |
 | [`Tec`]               | Collection    | Dense data    | You want to use a vec to store data, but need constant entity removal. [`Tec`] reclaims the spaces for you as you insert more new items.
  */
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use rustc_hash::FxHashMap;
 
@@ -144,7 +144,7 @@ pub struct Tec<DataT, IndexT = usize> {
     vec: Vec<Slot<DataT, IndexT>>,
     /// invariants: the free index must be either
     ///      - pointer some dead slot within the `vec`
-    ///      - or the end of the `vec`
+    ///      - or the sentinal value of Maximum::maximum()
     /// In other words, the `vec` cannot have trailing dead slots
     next_free: IndexT,
     count: usize,
@@ -162,7 +162,7 @@ Use cases:
 - you don't care about relaiming ids
 */
 pub struct SparseEntities<DataT, IndexT = usize> {
-    data: HashMap<IndexT, DataT>,
+    data: FxHashMap<IndexT, DataT>,
     seq: Sequence<IndexT>,
 }
 

@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use stable_id_traits::CastUsize;
 
 use crate::Slot;
@@ -11,28 +13,28 @@ pub(crate) fn find_start_of_trailing_dead_slots<IndexT: CastUsize, DataT>(
     slice: &[Slot<DataT, IndexT>],
 ) -> Option<(IndexT, usize)> {
     // This is a helper function of another helper function `remove_trailing_dead_slots` for `remove()`.
-    // Getting to this point means an element is already gone.
+    // Getting to this point means one living slot is turned into a dead slot -- i.e. slice shouldn't be empty.
     debug_assert!(!slice.is_empty());
 
-    let len = slice.len();
-
-    let len_minus_one = len - 1;
-    let mut acc: Option<usize> = None;
-    let mut count = 0;
-
-    for (i, slot) in slice.iter().rev().enumerate() {
-        let index = len_minus_one - i;
-
+    let result = slice.iter().rev().try_fold((false, 0usize), |acc, slot| {
         if matches!(slot, Slot::Alive(_)) {
-            return acc.map(|index| (IndexT::cast_from(index), count));
+            ControlFlow::Break(acc)
+        } else {
+            let (_, count) = acc;
+            ControlFlow::Continue((true, count + 1))
         }
+    });
 
-        count += 1;
-        acc = Some(index);
+    let (has_removable_candidates, count) = match result {
+        ControlFlow::Break(count) => count,
+        ControlFlow::Continue(count) => count,
+    };
+
+    if has_removable_candidates {
+        Some((IndexT::cast_from(slice.len() - count), count))
+    } else {
+        None
     }
-
-    // all items in the slice are dead
-    Some((IndexT::cast_from(0), count))
 }
 
 #[cfg(test)]

@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
 };
@@ -12,13 +11,6 @@ impl<DataT, IndexT> SparseEntities<DataT, IndexT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Default,
 {
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            data: HashMap::with_capacity(capacity),
-            seq: Default::default(),
-        }
-    }
-
     pub fn len(&self) -> usize {
         self.data.len()
     }

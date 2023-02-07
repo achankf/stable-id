@@ -5,6 +5,7 @@ use std::fmt::Debug;
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::ops::ControlFlow;
 use std::{
     mem,
     ops::{Index, IndexMut},
@@ -32,6 +33,19 @@ impl<DataT, IndexT> Tec<DataT, IndexT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
 {
+    fn set_sentinal(&mut self) {
+        self.next_free = Maximum::max_value();
+    }
+
+    fn check_free_link_invariant(&self, link: IndexT) -> bool {
+        let n = link.cast_to();
+        let m = IndexT::max_value().cast_to();
+
+        // either the free list link is pointing to a valid spot in memory
+        // or it's pointing to the sentinal
+        n <= self.capacity() || n == m
+    }
+
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             vec: Vec::with_capacity(capacity),
@@ -55,8 +69,8 @@ where
 
     pub fn clear(&mut self) {
         self.vec.clear();
-        self.next_free = IndexT::max_value();
         self.count = 0;
+        self.set_sentinal();
     }
 
     /**
@@ -87,7 +101,7 @@ where
             );
 
             self.vec.push(Slot::Alive(data));
-            self.next_free = Maximum::max_value();
+            self.set_sentinal();
             IndexT::cast_from(result_index)
         };
 
@@ -117,19 +131,23 @@ where
                 return;
             }
 
-            // do a linked-list-style "retain()" to remove anything at and beyond `last_trailing_dead_slot`
+            debug_assert!(remove_count < capacity);
 
+            // do a linked-list-style "retain()" to remove anything at and beyond `last_trailing_dead_slot`
             // 2 cursors for traversing the linked list:
-            // - one for linear scan
-            // - and another one for removing/skipping trailing dead slots
+
+            // cursor for doing a linear scan of the free list
             let mut cursor = self.next_free;
 
+            // cursor for keeping track of valid nodes of the free list (ones that aren't not going to be popped)
             let mut retained_slot_cursor: Option<IndexT> = None;
 
             // tail of linked-list is an index points to `len` (just one outside the `vec`)
             loop {
                 // check the next item in the link
                 if let Slot::Dead { next_free } = self.vec[cursor.cast_to()] {
+                    debug_assert!(self.check_free_link_invariant(next_free));
+
                     if next_free.cast_to() >= capacity {
                         break;
                     }
@@ -162,21 +180,20 @@ where
             }
 
             // deallocate trailing dead slots
-            for _ in 0..remove_count {
-                let removed = self
-                    .vec
-                    .pop()
-                    .expect("should be able to remove trailing dead slot");
-                debug_assert!(matches!(removed, Slot::Dead { .. }));
-            }
+            self.vec.truncate(self.vec.len() - remove_count);
 
             // updating the tail to the max
             if self.is_empty() {
                 self.clear(); // this updates metadata after popping the vec
             } else if let Some(prev_keep) = retained_slot_cursor {
+                // we need to make sure to point the (possibly) new end of the free list to the sentinel value
                 if let Slot::Dead { next_free } = &mut self.vec[prev_keep.cast_to()] {
                     *next_free = Maximum::max_value();
                 }
+            } else {
+                // edge-case: an item is being removed from the end
+                debug_assert!(self.next_free.cast_to() >= self.capacity());
+                self.set_sentinal();
             }
         }
 
@@ -186,7 +203,7 @@ where
             // edge-case: the head was a trailing dead slot and it was being removed.
             //          This means the collection has no more dead slot.
             // test case: tomb_vec::tomb_vec_tests::tests::test_remove3
-            self.next_free = Maximum::max_value();
+            self.set_sentinal();
         }
 
         debug_assert!(self.check_consistency());
@@ -203,7 +220,8 @@ where
         // we're doing panic! over Option, so just do the bookkeeping here since we don't need to recover anything
         self.count -= 1;
 
-        let removal_candidate = &mut self.vec[index.cast_to()];
+        let index_usize = index.cast_to();
+        let removal_candidate = &mut self.vec[index_usize];
 
         let data = match removal_candidate {
             Slot::Alive(_) => {
@@ -215,7 +233,7 @@ where
 
                 // the temporary slot now has the removed item
 
-                self.next_free = index; // make the removal target as the head of free list
+                self.next_free = index;
 
                 match temp_dead_slot {
                     Slot::Alive(data) => data,
@@ -340,6 +358,63 @@ where
     }
 
     /**
+    Coalescing using the typical typical 2 direction trick, and then return the number of items being removed.
+    - FORWARD: we need to backfill dead slots in increasing order, using a binary heap
+    - another cursor traverse from the back of the memory block to scan for living slots and do the swap
+
+    However, if you can bound the number of dead slots to k=log(n), then you can bound this to O(log n). Analysis:
+    - forward cusor: it uses a binary heap to iterate, which takes `k log k` = `log(n) * log(log(n))` comparisons, which is O(log(n)), calculation thanks to symbolic calculator.
+    - backward cursor: either it gets k living members, or it has loop through at most k dead members to get the k living memebers, so O(k) = O(log(n))
+    */
+    fn heap_based_coalesce<F>(&mut self, mut f: F) -> usize
+    where
+        F: FnMut(IndexT, IndexT),
+    {
+        let mut free_heap = {
+            let free_list: Vec<_> = self.get_free_list().into_iter().map(Reverse).collect();
+
+            BinaryHeap::from(free_list)
+        };
+        let removed_len = free_heap.len();
+
+        let mut backward_cursor = self.capacity() - 1;
+        let max = Maximum::max_value();
+        'main_loop: while let Some(Reverse(forward_cursor)) = free_heap.pop() {
+            // find a living slot from the back
+            let mut living_target = loop {
+                let swap_target = &mut self.vec[backward_cursor];
+
+                let forward_cursor_usize = forward_cursor.cast_to();
+                if forward_cursor_usize >= backward_cursor {
+                    break 'main_loop;
+                }
+
+                if matches!(swap_target, Slot::Alive(_)) {
+                    // Let's swap the target out of the vec and replace with garbage data.
+                    // Later self.remove_trailing_dead_slots() will drop them.
+                    let mut dummy = Slot::Dead { next_free: max };
+                    mem::swap(swap_target, &mut dummy);
+                    break dummy;
+                }
+
+                backward_cursor -= 1;
+
+                // note: we have at least 1 living slot otherwise the code would short circuit in the base case
+                debug_assert!(backward_cursor != 0);
+            };
+
+            let dead_target = &mut self.vec[forward_cursor.cast_to()];
+            debug_assert!(matches!(dead_target, Slot::Dead { .. }));
+
+            // i.e. doing a remove and swap
+            mem::swap(&mut living_target, dead_target);
+            f(IndexT::cast_from(backward_cursor), forward_cursor);
+        }
+
+        removed_len
+    }
+
+    /**
     Coalesce the data by removing the dead slots. Takes a function `f(old_id, new_id)`
     that allows you to deal with changes made by the process, i.e. say in your game model,
     you have an entity which occupied `old_id`, you would need to change all references
@@ -347,15 +422,8 @@ where
     This is intended to be used before saving a game.
 
     Note: this algorithm is O(n lg n) due to the use of binary heap.
-
-    TODO: use utility_ratio to see decide to use binary heap or just a 2-pointer-linear scan.
-    if utility_ratio > lg(self.len()) / self.len() {
-        // use binary heap
-    } else {
-        // use 2 pointers for linear scans in opposite direction
-    }
     */
-    pub fn coalesce<F>(&mut self, mut f: F)
+    pub fn coalesce<F>(&mut self, f: F)
     where
         F: FnMut(IndexT, IndexT),
     {
@@ -368,73 +436,21 @@ where
             debug_assert!(!self.is_empty());
         }
 
-        // typical 2 direction trick:
-        // - FORWARD: we need to backfill dead slots in increasing order, using a binary heap
-        // - another cursor traverse from the back of the memory block to scan for living slots and do the swap
-
-        let mut free_heap = {
-            let free_list: Vec<_> = self
-                .get_free_list()
-                .into_iter()
-                .map(|index| Reverse(index))
-                .collect();
-
-            BinaryHeap::from(free_list)
-        };
-
-        let mut back_cursor = capacity - 1;
-        let max = Maximum::max_value();
-        'main_loop: while let Some(cursor) = free_heap.pop() {
-            let Reverse(cursor) = cursor;
-
-            // find a living slot from the back
-            let mut living_target = loop {
-                let swap_target = &mut self.vec[back_cursor];
-
-                if cursor.cast_to() >= back_cursor {
-                    break 'main_loop;
-                }
-
-                if matches!(swap_target, Slot::Alive(_)) {
-                    // Let's swap the target out of the vec and replace with garbage data.
-                    // Later self.remove_trailing_dead_slots() will drop them.
-                    let mut dummy = Slot::Dead { next_free: max };
-                    mem::swap(swap_target, &mut dummy);
-                    break dummy;
-                }
-
-                back_cursor -= 1;
-
-                debug_assert!(back_cursor != 0); // note: we have at least 1 living slot otherwise the code would short circuit in the base case
-            };
-
-            let dead_target = &mut self.vec[cursor.cast_to()];
-            debug_assert!(matches!(dead_target, Slot::Dead { .. }));
-
-            mem::swap(&mut living_target, dead_target);
-            f(IndexT::cast_from(back_cursor), cursor);
-        }
+        let removed_len = self.heap_based_coalesce(f);
 
         // pop out all trailing dead slots
-        let mut back_cursor = capacity - 1;
-        loop {
-            match self.vec[back_cursor] {
-                Slot::Alive(_) => {
-                    break;
-                }
-                Slot::Dead { .. } => {
-                    self.vec.pop();
-                    back_cursor -= 1;
-                    debug_assert!(back_cursor != 0); // note: we have at least 1 living slot otherwise the code would short circuit in the base case
-                }
-            }
-        }
+        self.vec.truncate(capacity - removed_len);
+
+        // edge-case: at this point the memory is compact, so we're pointing the free-list to the sentinel value
+        self.set_sentinal();
 
         debug_assert_eq!(self.len(), self.capacity());
     }
 
     fn check_consistency(&self) -> bool {
         use std::collections::HashSet;
+
+        debug_assert!(self.check_free_link_invariant(self.next_free));
 
         if self.is_empty() {
             debug_assert!(self.next_free == IndexT::max_value());
@@ -451,34 +467,16 @@ where
             .map(|(i, _)| i)
             .collect();
 
-        let mut linked_dead_set = HashSet::with_capacity(dead_set.len());
-        let mut cursor = self.next_free;
-        let capacity = self.capacity();
-        let max = Maximum::max_value();
-        linked_dead_set.insert(cursor.cast_to());
+        let linked_dead_set = self
+            .get_free_list()
+            .into_iter()
+            .map(CastUsize::cast_to)
+            .collect();
 
-        loop {
-            let cursor_usize = cursor.cast_to();
-            if cursor == max {
-                break;
-            } else if cursor_usize >= capacity {
-                unreachable!("cursor is out of range");
-            }
-
-            if let Slot::Dead { next_free } = &self.vec[cursor.cast_to()] {
-                cursor = *next_free;
-                linked_dead_set.insert(cursor.cast_to());
-            }
-        }
-
-        // the set from traversed linked list has an extra termination cursor to the capacity (next insertion candidate)
-        // invariant: dead_set = linked_dead_set - { max }
-        {
-            assert_eq!(dead_set.difference(&linked_dead_set).count(), 0);
-            let mut diff = linked_dead_set.difference(&dead_set);
-            assert_eq!(diff.next().cloned(), Some(max.cast_to()));
-            assert_eq!(diff.next().cloned(), None);
-        }
+        // we're double-counting:
+        // - dead_set is based on linear scan of the whole memory
+        // - linked_dead_set is based on linked-list traversal from self.next_free
+        assert_eq!(dead_set, linked_dead_set);
 
         true
     }
