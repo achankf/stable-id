@@ -138,7 +138,7 @@ where
 
                 match temp_dead_slot {
                     Slot::Alive(data) => data,
-                    Slot::Dead { .. } => panic!("cannot unwrap a dead item"),
+                    Slot::Dead { .. } => unreachable!("cannot unwrap a dead item"),
                 }
             }
             Slot::Dead { .. } => panic!("removing a dead item"),
@@ -216,18 +216,6 @@ where
     /// ```
     pub fn capacity(&self) -> usize {
         self.vec.len()
-    }
-
-    /// The ratio of how much living data vs all data. Use this to determine when to coalesce the data.
-    pub fn utility_ratio(&self) -> f64 {
-        let capacity = self.capacity();
-        if capacity == 0 {
-            // assume empty to be fully utilized
-            1.
-        } else {
-            let live = self.len();
-            (live as f64) / (capacity as f64)
-        }
     }
 
     fn get_free_list(&self) -> Vec<IndexT> {
