@@ -38,6 +38,9 @@ use std::collections::BTreeSet;
 
 use rustc_hash::FxHashMap;
 
+pub use derive_stable_id::StableId;
+pub use stable_id_traits::*;
+
 mod eids;
 mod entities;
 mod sequence;
