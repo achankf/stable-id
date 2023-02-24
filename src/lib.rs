@@ -15,20 +15,14 @@ struct Id(u8);
 
 
 // These are needed under normal circumstances.
-#[derive(
-    Default,
-    Clone, Copy,
-    PartialEq, Eq, Hash,
-    PartialOrd, Ord,
-    derive_stable_id::StableId,
-)]
+#[derive(derive_stable_id::StableId)]
 struct Id32(u32);
 
 let x: stable_id::Eids<Id32> = Default::default();
 let x: stable_id::Sequence<Id32> = Default::default();
-let x: stable_id::SparseEntities<String, Id32> = Default::default();
-let x: stable_id::Entities<String, Id32> = Default::default();
-let x: stable_id::Tec<String, Id32> = Default::default();
+let x: stable_id::SparseEntities<Id32, String> = Default::default();
+let x: stable_id::Entities<Id32, String> = Default::default();
+let x: stable_id::Tec<Id32, String> = Default::default();
 ```
 
 # Use cases
@@ -130,17 +124,17 @@ Don't use it if:
 use stable_id::Tec;
 
 // use the `derive_more` crate to shortern the list
-#[derive(derive_stable_id::StableId, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+#[derive(derive_stable_id::StableId, Debug)]
 struct Id(u8);
 struct Data { field: usize }
 
-let mut storage: Tec<Data, Id> = Default::default();
+let mut storage: Tec<Id, Data> = Default::default();
 assert_eq!(storage.alloc(Data {field: 123}), Id(0));
 assert_eq!(storage.get(Id(0)).unwrap().field, 123);
 ```
 */
 #[derive(Clone)]
-pub struct Tec<DataT, IndexT = usize> {
+pub struct Tec<IndexT, DataT> {
     vec: Vec<Slot<DataT, IndexT>>,
     /// invariants: the free index must be either
     ///      - pointer some dead slot within the `vec`
@@ -161,7 +155,7 @@ Use cases:
 - you're removing more entities than you are adding
 - you don't care about relaiming ids
 */
-pub struct SparseEntities<DataT, IndexT = usize> {
+pub struct SparseEntities<IndexT, DataT> {
     data: FxHashMap<IndexT, DataT>,
     seq: Sequence<IndexT>,
 }
@@ -179,8 +173,8 @@ Use cases are the same but there are different tradeoffs.
   try to compact the memory by removing dead slots from [`Tec`] when there's a majority of dead slots -- it's another O(n) pass.
 */
 #[derive(Clone)]
-pub struct Entities<DataT, IndexT = usize> {
+pub struct Entities<IndexT, DataT> {
     vtable: FxHashMap<IndexT, IndexT>, // virtual id -> physical id
-    data: Tec<DataT, IndexT>,
+    data: Tec<IndexT, DataT>,
     seq: Sequence<IndexT>,
 }

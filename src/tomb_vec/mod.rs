@@ -14,7 +14,7 @@ use stable_id_traits::{CastUsize, Maximum};
 
 use crate::{Slot, Tec};
 
-impl<DataT, IndexT> Default for Tec<DataT, IndexT>
+impl<IndexT, DataT> Default for Tec<IndexT, DataT>
 where
     IndexT: Maximum,
 {
@@ -27,7 +27,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Tec<DataT, IndexT>
+impl<IndexT, DataT> Tec<IndexT, DataT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
 {
@@ -367,7 +367,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Tec<DataT, IndexT>
+impl<IndexT, DataT> Tec<IndexT, DataT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
     DataT: Clone,
@@ -387,7 +387,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Tec<DataT, IndexT>
+impl<IndexT, DataT> Tec<IndexT, DataT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
     DataT: Clone + Default,
@@ -400,7 +400,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Tec<DataT, IndexT>
+impl<IndexT, DataT> Tec<IndexT, DataT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
     DataT: Default,
@@ -410,7 +410,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Index<IndexT> for Tec<DataT, IndexT>
+impl<IndexT, DataT> Index<IndexT> for Tec<IndexT, DataT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
 {
@@ -421,7 +421,7 @@ where
     }
 }
 
-impl<DataT, IndexT> IndexMut<IndexT> for Tec<DataT, IndexT>
+impl<IndexT, DataT> IndexMut<IndexT> for Tec<IndexT, DataT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum,
 {
@@ -430,7 +430,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Debug for Tec<DataT, IndexT>
+impl<IndexT, DataT> Debug for Tec<IndexT, DataT>
 where
     IndexT: Debug,
     DataT: Debug,

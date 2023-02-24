@@ -7,7 +7,7 @@ use stable_id_traits::Successor;
 
 use super::SparseEntities;
 
-impl<DataT, IndexT> SparseEntities<DataT, IndexT>
+impl<IndexT, DataT> SparseEntities<IndexT, DataT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Default,
 {
@@ -52,7 +52,7 @@ where
     }
 }
 
-impl<DataT, IndexT> IntoIterator for SparseEntities<DataT, IndexT>
+impl<IndexT, DataT> IntoIterator for SparseEntities<IndexT, DataT>
 where
     IndexT: Successor + Clone + Copy + Default + Hash + Eq,
 {
@@ -65,7 +65,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Default for SparseEntities<DataT, IndexT>
+impl<IndexT, DataT> Default for SparseEntities<IndexT, DataT>
 where
     IndexT: Default,
 {
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Index<IndexT> for SparseEntities<DataT, IndexT>
+impl<IndexT, DataT> Index<IndexT> for SparseEntities<IndexT, DataT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Default,
 {
@@ -88,7 +88,7 @@ where
     }
 }
 
-impl<DataT, IndexT> IndexMut<IndexT> for SparseEntities<DataT, IndexT>
+impl<IndexT, DataT> IndexMut<IndexT> for SparseEntities<IndexT, DataT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Default,
 {
@@ -122,7 +122,7 @@ mod tests {
     fn normal() {
         let mut entities = SparseEntities::default();
 
-        fn check_all(entities: &SparseEntities<&str>) {
+        fn check_all(entities: &SparseEntities<usize, &str>) {
             entities
                 .iter()
                 .for_each(|(id, data)| assert_eq!(entities[id], *data));

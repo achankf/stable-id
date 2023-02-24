@@ -7,24 +7,13 @@ mod tests {
 
     use crate::Tec;
 
-    #[derive(
-        Default,
-        Clone,
-        Copy,
-        Ord,
-        PartialOrd,
-        Eq,
-        PartialEq,
-        derive_stable_id::StableId,
-        Debug,
-        Hash,
-    )]
+    #[derive(derive_stable_id::StableId, Debug)]
     struct Id8(u8);
 
     #[test]
     fn populate() {
         let count = 50;
-        let mut entities = Tec::<usize, u8>::populate_defaults(count);
+        let mut entities = Tec::<u8, usize>::populate_defaults(count);
 
         assert_eq!(entities.len(), count);
         assert_eq!(entities.alloc(54354534), count as u8);
@@ -33,7 +22,7 @@ mod tests {
 
     #[test]
     fn create_remove_end_custom_id() {
-        let mut entities: Tec<u8, Id8> = Default::default();
+        let mut entities: Tec<Id8, u8> = Default::default();
         (0..255).for_each(|i| {
             assert_eq!(entities.alloc(i), Id8::cast_from(i.into()));
         });
@@ -220,14 +209,14 @@ mod tests {
     #[test]
     #[should_panic(expected = "removing an item from an empty container")]
     fn remove_unallocated_element() {
-        let mut tec = Tec::<u8>::default();
+        let mut tec = Tec::<usize, u8>::default();
         tec.remove(12321);
     }
 
     #[test]
     #[should_panic(expected = "removing an item from an empty container")]
     fn index_overflow() {
-        let mut tec = Tec::<u8>::default();
+        let mut tec = Tec::<usize, u8>::default();
         tec.remove(12321);
     }
 
@@ -288,7 +277,7 @@ mod tests {
         let b = 654645;
         let c = 0;
         let d = 123;
-        let mut tec = Tec::<_, u8>::default();
+        let mut tec = Tec::<u8, usize>::default();
         let a_id = tec.alloc(a);
         let b_id = tec.alloc(b);
         let c_id = tec.alloc(c);
@@ -319,7 +308,7 @@ mod tests {
 
     #[test]
     fn remove() {
-        let mut tec = Tec::<_, u8>::default();
+        let mut tec = Tec::<usize, u8>::default();
 
         (0..100u8).for_each(|val| {
             tec.alloc(val);
@@ -409,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut tec: Tec<usize> = Default::default();
+        let mut tec: Tec<usize, usize> = Default::default();
 
         let total = 10;
 
@@ -425,7 +414,7 @@ mod tests {
 
     #[test]
     fn test_remove2() {
-        let mut tec: Tec<usize> = Default::default();
+        let mut tec: Tec<usize, usize> = Default::default();
 
         let remove_items = [1, 4, 5, 3, 2, 0];
 
@@ -443,7 +432,7 @@ mod tests {
         // edge-case: removing items in a way that eliminates all dead slots,
         //          so that the head would be pointing to an invalid element
 
-        let mut tec: Tec<usize> = Default::default();
+        let mut tec: Tec<usize, usize> = Default::default();
 
         let remove_items = [0, 3, 2, 1, 4];
 
@@ -460,7 +449,7 @@ mod tests {
     fn iter() {
         let mut entities = Tec::default();
 
-        fn check_all(entities: &Tec<String>) {
+        fn check_all(entities: &Tec<usize, String>) {
             entities
                 .iter_with_id()
                 .for_each(|(id, data)| assert_eq!(entities[id], *data));

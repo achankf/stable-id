@@ -10,7 +10,7 @@ use crate::{Sequence, Tec};
 
 use super::Entities;
 
-impl<DataT, IndexT> Entities<DataT, IndexT>
+impl<IndexT, DataT> Entities<IndexT, DataT>
 where
     IndexT: Default + Successor + Clone + Copy + Hash + Eq + CastUsize + Ord + Maximum,
 {
@@ -133,7 +133,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Default for Entities<DataT, IndexT>
+impl<IndexT, DataT> Default for Entities<IndexT, DataT>
 where
     IndexT: Default + Maximum,
 {
@@ -146,7 +146,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Entities<DataT, IndexT>
+impl<IndexT, DataT> Entities<IndexT, DataT>
 where
     IndexT: Successor + CastUsize + Ord + Copy + Maximum + Hash,
     DataT: Clone,
@@ -169,7 +169,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Entities<DataT, IndexT>
+impl<IndexT, DataT> Entities<IndexT, DataT>
 where
     IndexT: CastUsize + Ord + Copy + Maximum + Successor + Hash,
     DataT: Clone + Default,
@@ -182,7 +182,7 @@ where
     }
 }
 
-impl<DataT, IndexT> Index<IndexT> for Entities<DataT, IndexT>
+impl<IndexT, DataT> Index<IndexT> for Entities<IndexT, DataT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Default + CastUsize + Ord + Maximum,
 {
@@ -193,7 +193,7 @@ where
     }
 }
 
-impl<DataT, IndexT> IndexMut<IndexT> for Entities<DataT, IndexT>
+impl<IndexT, DataT> IndexMut<IndexT> for Entities<IndexT, DataT>
 where
     IndexT: Successor + Clone + Copy + Hash + Eq + Default + CastUsize + Ord + Maximum,
 {
@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn populate() {
         let count = 50;
-        let mut entities = Entities::<usize, u8>::populate_defaults(count);
+        let mut entities = Entities::<u8, usize>::populate_defaults(count);
 
         assert_eq!(entities.len(), count);
         assert_eq!(entities.alloc(54354534), count as u8);
@@ -237,7 +237,7 @@ mod tests {
     fn normal() {
         let mut entities = Entities::default();
 
-        fn check_all(entities: &Entities<&str>) {
+        fn check_all(entities: &Entities<usize, &str>) {
             entities
                 .iter_with_id()
                 .for_each(|(id, data)| assert_eq!(entities[id], *data));
@@ -277,7 +277,7 @@ mod tests {
     fn iter() {
         let mut entities = Entities::default();
 
-        fn check_all(entities: &Entities<String>) {
+        fn check_all(entities: &Entities<usize, String>) {
             entities
                 .iter_with_id()
                 .for_each(|(id, data)| assert_eq!(entities[id], *data));
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn coalesce_from_remove() {
-        let mut entities: Entities<char, u8> = Default::default();
+        let mut entities: Entities<usize, char> = Default::default();
 
         ['a', 'b', 'c', 'd', 'e'].into_iter().for_each(|c| {
             entities.alloc(c);
